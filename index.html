@@ -1361,7 +1361,8 @@ function handleDragStart(e) {
     row: parseInt(el.dataset.dragRow),
     col: parseInt(el.dataset.dragCol),
     group: parseInt(el.dataset.dragGroup),
-    index: parseInt(el.dataset.dragIndex)
+    index: parseInt(el.dataset.dragIndex),
+    studentId: el.dataset.dragStudent
   };
   el.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
@@ -1380,6 +1381,23 @@ function handleDragLeave(e) {
   if (el) el.classList.remove('drag-over');
 }
 
+function removeStudentFromAllSeating(id) {
+  if (state.normalSeating) {
+    for (let r = 0; r < state.layout.rows; r++) {
+      for (let c = 0; c < state.layout.cols; c++) {
+        if (state.normalSeating[r][c] === id) state.normalSeating[r][c] = null;
+      }
+    }
+  }
+  if (state.groupSeating) {
+    for (let g = 0; g < state.layout.groupCount; g++) {
+      for (let i = 0; i < state.groupSeating[g].length; i++) {
+        if (state.groupSeating[g][i] === id) state.groupSeating[g][i] = null;
+      }
+    }
+  }
+}
+
 function handleDrop(e) {
   e.preventDefault();
   $$('.drag-over').forEach(el => el.classList.remove('drag-over'));
@@ -1396,23 +1414,51 @@ function handleDrop(e) {
     index: parseInt(el.dataset.dragIndex)
   };
 
-  if (dragData.mode === 'normal' && target.mode === 'normal') {
-    if (dragData.row === target.row && dragData.col === target.col) return;
-    // Prevent dropping onto disabled seats
-    if (isDisabledSeat(target.row, target.col)) { showToast('此位置已禁用', 'error'); return; }
-    pushHistory();
-    const grid = state.normalSeating;
-    [grid[dragData.row][dragData.col], grid[target.row][target.col]] =
-      [grid[target.row][target.col], grid[dragData.row][dragData.col]];
-    saveState(); renderNormalSeating(); renderStatusBar();
-  } else if (dragData.mode === 'group' && target.mode === 'group') {
-    if (dragData.group === target.group && dragData.index === target.index) return;
-    pushHistory();
-    const groups = state.groupSeating;
-    [groups[dragData.group][dragData.index], groups[target.group][target.index]] =
-      [groups[target.group][target.index], groups[dragData.group][dragData.index]];
-    saveState(); renderGroupSeating(); renderStatusBar();
+  if (target.mode === 'roster-panel') {
+    if (dragData.mode === 'normal') {
+      pushHistory();
+      state.normalSeating[dragData.row][dragData.col] = null;
+      saveState(); renderNormalSeating(); renderStatusBar(); renderRoster();
+    } else if (dragData.mode === 'group') {
+      pushHistory();
+      state.groupSeating[dragData.group][dragData.index] = null;
+      saveState(); renderGroupSeating(); renderStatusBar(); renderRoster();
+    }
+    dragData = null;
+    return;
   }
+
+  if (target.mode === 'normal') {
+    if (isDisabledSeat(target.row, target.col)) { showToast('此位置已禁用', 'error'); return; }
+    
+    if (dragData.mode === 'normal') {
+      if (dragData.row === target.row && dragData.col === target.col) return;
+      pushHistory();
+      const grid = state.normalSeating;
+      [grid[dragData.row][dragData.col], grid[target.row][target.col]] =
+        [grid[target.row][target.col], grid[dragData.row][dragData.col]];
+    } else {
+      pushHistory();
+      removeStudentFromAllSeating(dragData.studentId);
+      state.normalSeating[target.row][target.col] = dragData.studentId;
+    }
+    saveState(); renderNormalSeating(); renderStatusBar(); renderRoster();
+
+  } else if (target.mode === 'group') {
+    if (dragData.mode === 'group') {
+      if (dragData.group === target.group && dragData.index === target.index) return;
+      pushHistory();
+      const groups = state.groupSeating;
+      [groups[dragData.group][dragData.index], groups[target.group][target.index]] =
+        [groups[target.group][target.index], groups[dragData.group][dragData.index]];
+    } else {
+      pushHistory();
+      removeStudentFromAllSeating(dragData.studentId);
+      state.groupSeating[target.group][target.index] = dragData.studentId;
+    }
+    saveState(); renderGroupSeating(); renderStatusBar(); renderRoster();
+  }
+  
   dragData = null;
 }
 
@@ -1451,8 +1497,18 @@ function renderRoster() {
     return;
   }
 
-  list.innerHTML = state.students.map(s => `
-    <div class="student-item" id="student-${s.id}">
+  const seatedIds = new Set();
+  if (state.layout.mode === 'normal' && state.normalSeating) {
+    state.normalSeating.forEach(row => row.forEach(id => { if(id) seatedIds.add(id); }));
+  } else if (state.layout.mode === 'group' && state.groupSeating) {
+    state.groupSeating.forEach(group => group.forEach(id => { if(id) seatedIds.add(id); }));
+  }
+
+  list.innerHTML = state.students.map(s => {
+    const isSeated = seatedIds.has(s.id);
+    const seatedClass = isSeated ? 'seated' : '';
+    return `
+    <div class="student-item ${seatedClass}" id="student-${s.id}" draggable="true" data-drag-id="roster-${s.id}" data-drag-mode="roster" data-drag-student="${s.id}">
       <span class="student-seatno">${s.seatNumber}</span>
       <span class="student-gender ${s.gender}"></span>
       <span class="student-name">${s.name}</span>
@@ -1461,7 +1517,18 @@ function renderRoster() {
         <button class="btn-icon delete" onclick="removeStudent('${s.id}')" title="刪除">🗑️</button>
       </div>
     </div>
-  `).join('');
+  `}).join('');
+
+  list.querySelectorAll('.student-item').forEach(el => {
+    el.addEventListener('dragstart', handleDragStart);
+    el.addEventListener('dragend', handleDragEnd);
+  });
+
+  list.dataset.dragId = "roster-panel";
+  list.dataset.dragMode = "roster-panel";
+  list.addEventListener('dragover', handleDragOver);
+  list.addEventListener('dragleave', handleDragLeave);
+  list.addEventListener('drop', handleDrop);
 }
 
 function renderConstraints() {
@@ -1602,7 +1669,7 @@ function renderNormalSeating(animate = false) {
       } else if (student) {
         html += `<div class="seat occupied ${student.gender} ${isViolation ? 'violation' : ''} ${animClass}"
           draggable="true" data-drag-id="${student.id}" data-drag-mode="normal"
-          data-drag-row="${r}" data-drag-col="${c}" data-seat-row="${r}" data-seat-col="${c}" style="${animDelay}"
+          data-drag-row="${r}" data-drag-col="${c}" data-seat-row="${r}" data-seat-col="${c}" data-drag-student="${student.id}" style="${animDelay}"
           title="${student.seatNumber} ${student.name}">
           ${isFirstRow ? '<div class="first-row-badge">⭐</div>' : ''}
           <span class="seat-no">${student.seatNumber}號</span>
@@ -1686,7 +1753,7 @@ function renderGroupSeating(animate = false) {
       if (student) {
         html += `<div class="group-seat occupied ${student.gender} ${isViolation ? 'violation' : ''}"
           draggable="true" data-drag-id="${student.id}" data-drag-mode="group"
-          data-drag-group="${g}" data-drag-index="${i}"
+          data-drag-group="${g}" data-drag-index="${i}" data-drag-student="${student.id}"
           title="${student.seatNumber} ${student.name}">
           <span class="seat-no">${student.seatNumber}號</span>
           <span class="seat-name">${student.name}</span>
