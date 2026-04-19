@@ -1,0 +1,2072 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="國小教師座位編排工具 — 支援一般座位與分組座位、約束設定、自動排位與手動微調">
+  <title>國小座位編排工具</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== Reset & Global ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    :root {
+      --primary: #5B6ABF;
+      --primary-hover: #4A58A8;
+      --primary-light: #E8EAF6;
+      --primary-glow: rgba(91,106,191,0.25);
+      --accent: #FF9800;
+      --accent-hover: #F57C00;
+      --accent-light: #FFF3E0;
+      --success: #43A047;
+      --success-hover: #2E7D32;
+      --success-light: #E8F5E9;
+      --danger: #EF5350;
+      --danger-hover: #D32F2F;
+      --danger-light: #FFEBEE;
+      --warning: #F9A825;
+      --warning-hover: #F57F17;
+      --warning-light: #FFF8E1;
+      --bg: #F0F2F8;
+      --bg-header: linear-gradient(135deg, #2D3561 0%, #1A1D3B 100%);
+      --card: #FFFFFF;
+      --sidebar-bg: #FFFFFF;
+      --border: #E0E4EC;
+      --border-light: #F0F2F8;
+      --text-primary: #1A1D3B;
+      --text-secondary: #6B7280;
+      --text-light: #9CA3AF;
+      --text-white: #FFFFFF;
+      --male-color: #1E88E5;
+      --male-bg: #E3F2FD;
+      --male-border: #64B5F6;
+      --female-color: #D81B60;
+      --female-bg: #FCE4EC;
+      --female-border: #F06292;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
+      --shadow-xl: 0 16px 40px rgba(0,0,0,0.12);
+      --radius-xs: 4px;
+      --radius-sm: 8px;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ===== App Layout ===== */
+    #app {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ===== Header ===== */
+    #header {
+      background: var(--bg-header);
+      color: var(--text-white);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .header-center { flex: 1; display: flex; justify-content: center; padding: 0 20px; }
+    #classTitle {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: var(--radius-sm);
+      color: var(--text-white);
+      padding: 6px 16px;
+      font-size: 0.93rem;
+      width: 260px;
+      text-align: center;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+    #classTitle::placeholder { color: rgba(255,255,255,0.4); }
+    #classTitle:focus {
+      outline: none;
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.4);
+    }
+    .header-right { display: flex; gap: 8px; }
+
+    /* ===== Buttons ===== */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 16px;
+      border: none; border-radius: var(--radius-sm);
+      font-size: 0.87rem; font-weight: 500;
+      cursor: pointer; transition: var(--transition);
+      font-family: inherit; white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-header {
+      background: rgba(255,255,255,0.12);
+      color: var(--text-white);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .btn-header:hover { background: rgba(255,255,255,0.22); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: var(--success-hover); }
+    .btn-warning { background: var(--warning); color: #333; }
+    .btn-warning:hover { background: var(--warning-hover); }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-hover); }
+    .btn-outline {
+      background: transparent; color: var(--primary);
+      border: 1.5px solid var(--border);
+    }
+    .btn-outline:hover { background: var(--primary-light); border-color: var(--primary); }
+    .btn-outline-danger {
+      background: transparent; color: var(--danger);
+      border: 1.5px solid var(--danger);
+    }
+    .btn-outline-danger:hover { background: var(--danger-light); }
+    .btn-sm { padding: 5px 12px; font-size: 0.82rem; }
+    .btn-xs { padding: 3px 8px; font-size: 0.78rem; border-radius: var(--radius-xs); }
+    .btn-full { width: 100%; justify-content: center; }
+    .btn-icon {
+      width: 28px; height: 28px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%; background: transparent; border: none;
+      color: var(--text-secondary); cursor: pointer; transition: var(--transition);
+      font-size: 0.9rem;
+    }
+    .btn-icon:hover { background: var(--border-light); color: var(--text-primary); }
+    .btn-icon.delete:hover { background: var(--danger-light); color: var(--danger); }
+
+    /* ===== Main Layout ===== */
+    #main {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      overflow: hidden;
+    }
+
+    /* ===== Sidebar ===== */
+    #sidebar {
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border-light);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1; padding: 12px 0;
+      background: none; border: none; border-bottom: 3px solid transparent;
+      font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);
+      cursor: pointer; transition: var(--transition);
+      font-family: inherit; margin-bottom: -2px;
+    }
+    .tab-btn:hover { color: var(--text-primary); background: var(--border-light); }
+    .tab-btn.active {
+      color: var(--primary); border-bottom-color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Panels */
+    .panel { display: none; flex-direction: column; overflow-y: auto; padding: 16px; gap: 12px; flex: 1; }
+    .panel.active { display: flex; }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 8px;
+      font-weight: 700; font-size: 0.95rem; color: var(--text-primary);
+    }
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 11px; background: var(--primary);
+      color: #fff; font-size: 0.75rem; font-weight: 700;
+    }
+
+    /* Add Student Form */
+    .add-student-form {
+      background: var(--border-light);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .form-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .form-row input[type="number"],
+    .form-row input[type="text"] {
+      flex: 1; padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.87rem; font-family: inherit;
+      transition: var(--transition);
+      background: #fff;
+    }
+    .form-row input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .form-row input[type="number"] { width: 70px; flex: none; }
+    .radio-label {
+      display: inline-flex; cursor: pointer;
+    }
+    .radio-label input { display: none; }
+    .radio-custom {
+      padding: 4px 12px; border-radius: var(--radius-sm);
+      font-size: 0.82rem; font-weight: 500;
+      border: 1.5px solid var(--border);
+      transition: var(--transition);
+    }
+    .radio-custom.male { color: var(--male-color); }
+    .radio-custom.female { color: var(--female-color); }
+    .radio-label input:checked + .radio-custom.male {
+      background: var(--male-bg); border-color: var(--male-border); font-weight: 700;
+    }
+    .radio-label input:checked + .radio-custom.female {
+      background: var(--female-bg); border-color: var(--female-border); font-weight: 700;
+    }
+
+    /* Student List */
+    .student-list {
+      display: flex; flex-direction: column; gap: 4px;
+      overflow-y: auto; flex: 1;
+    }
+    .student-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: #fff;
+      border: 1px solid var(--border);
+      transition: var(--transition);
+      cursor: default;
+    }
+    .student-item:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+    .student-seatno {
+      font-weight: 700; font-size: 0.82rem;
+      color: var(--text-secondary);
+      min-width: 28px; text-align: center;
+    }
+    .student-gender {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .student-gender.male { background: var(--male-color); }
+    .student-gender.female { background: var(--female-color); }
+    .student-name { flex: 1; font-size: 0.9rem; font-weight: 500; }
+    .student-actions { display: flex; gap: 2px; opacity: 0; transition: var(--transition); }
+    .student-item:hover .student-actions { opacity: 1; }
+
+    /* Constraint Panel */
+    .constraint-section {
+      background: var(--border-light);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .constraint-section h3 { font-size: 0.88rem; margin-bottom: 4px; }
+    .constraint-section .help-text {
+      font-size: 0.78rem; color: var(--text-light); margin-bottom: 8px;
+    }
+    .constraint-section select {
+      flex: 1; padding: 6px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem; font-family: inherit;
+      background: #fff; cursor: pointer;
+    }
+    .constraint-section select:focus { outline: none; border-color: var(--primary); }
+    .separator { color: var(--text-light); font-size: 0.85rem; flex-shrink: 0; }
+    .constraint-list {
+      display: flex; flex-direction: column; gap: 4px;
+      overflow-y: auto; flex: 1;
+    }
+    .constraint-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+    .constraint-item .tag {
+      padding: 2px 8px; border-radius: var(--radius-xs);
+      font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+    }
+    .tag-noadj { background: var(--danger-light); color: var(--danger); }
+    .tag-firstrow { background: var(--accent-light); color: var(--accent-hover); }
+    .constraint-item .desc { flex: 1; }
+
+    /* ===== Content Area ===== */
+    #content {
+      display: flex; flex-direction: column;
+      overflow: hidden; background: var(--bg);
+    }
+
+    /* Toolbar */
+    #toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
+    .toolbar-center { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .mode-switch {
+      display: flex;
+      background: var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+    }
+    .mode-btn {
+      padding: 6px 16px;
+      border: none; border-radius: 6px;
+      background: transparent;
+      font-size: 0.85rem; font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer; transition: var(--transition);
+      font-family: inherit;
+    }
+    .mode-btn.active {
+      background: var(--primary); color: #fff;
+      box-shadow: var(--shadow-sm);
+    }
+    .mode-btn:not(.active):hover { color: var(--text-primary); }
+    .layout-input-group {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.85rem; color: var(--text-secondary);
+    }
+    .layout-input-group input {
+      width: 52px; padding: 5px 6px; text-align: center;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 0.85rem; font-family: inherit;
+    }
+    .layout-input-group input:focus {
+      outline: none; border-color: var(--primary);
+    }
+    .layout-input-group label { font-weight: 500; white-space: nowrap; }
+
+    /* ===== Seating Area ===== */
+    #seatingArea {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      overflow: auto;
+    }
+    .blackboard {
+      width: min(90%, 700px);
+      background: linear-gradient(135deg, #2E7D32, #1B5E20);
+      color: rgba(255,255,255,0.85);
+      text-align: center;
+      padding: 10px 0;
+      border-radius: var(--radius) var(--radius) 4px 4px;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 8px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(46,125,50,0.3);
+      position: relative;
+    }
+    .blackboard::after {
+      content: '';
+      position: absolute;
+      bottom: -6px; left: 10%; right: 10%;
+      height: 4px;
+      background: #8D6E63;
+      border-radius: 0 0 2px 2px;
+    }
+
+    /* Normal Seating Grid */
+    #seatingGrid {
+      display: grid;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    /* Seat Card */
+    .seat {
+      width: 100px; height: 72px;
+      border-radius: var(--radius-sm);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: var(--transition);
+      cursor: grab;
+      position: relative;
+      user-select: none;
+    }
+    .seat.empty {
+      background: rgba(255,255,255,0.5);
+      border: 2px dashed var(--border);
+      cursor: default;
+    }
+    .seat.disabled {
+      background: repeating-linear-gradient(
+        45deg, #e0e0e0, #e0e0e0 4px, #d0d0d0 4px, #d0d0d0 8px
+      );
+      border: 2px solid #b0b0b0;
+      cursor: pointer;
+      color: #999;
+      opacity: 0.7;
+    }
+    .seat.disabled .seat-name { color: #999; font-size: 0.8rem; }
+    .seat.disabled:hover { opacity: 0.9; transform: translateY(-1px); }
+    /* Edit mode cursor */
+    .edit-mode .seat { cursor: pointer !important; }
+    .edit-mode .seat.empty:hover {
+      background: rgba(239,83,80,0.12);
+      border-color: var(--danger);
+    }
+    .edit-mode .seat.disabled:hover {
+      background: rgba(67,160,71,0.12);
+      border-color: var(--success);
+    }
+    /* Edit mode active button */
+    .btn-edit-active {
+      background: var(--warning) !important;
+      color: #333 !important;
+      box-shadow: 0 0 0 3px rgba(249,168,37,0.35);
+    }
+    .seat.occupied {
+      background: var(--card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+    .seat.occupied:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+      border-color: var(--primary);
+    }
+    .seat.occupied.male { border-left: 4px solid var(--male-color); }
+    .seat.occupied.female { border-left: 4px solid var(--female-color); }
+    .seat.violation {
+      border-color: var(--danger) !important;
+      background: var(--danger-light) !important;
+      animation: pulse-danger 1.5s infinite;
+    }
+    .seat .seat-no {
+      font-size: 0.72rem;
+      color: var(--text-light);
+      font-weight: 700;
+    }
+    .seat .seat-name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-top: 2px;
+    }
+    .seat .seat-badge {
+      position: absolute; top: 3px; right: 3px;
+      font-size: 0.6rem;
+    }
+    .seat.drag-over {
+      background: var(--primary-light) !important;
+      border: 2px dashed var(--primary) !important;
+      transform: scale(1.05);
+    }
+    .seat.dragging {
+      opacity: 0.4;
+      transform: scale(0.95);
+    }
+    .seat .first-row-badge {
+      position: absolute; top: -6px; right: -6px;
+      width: 18px; height: 18px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.55rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Group Seating */
+    #groupGrid {
+      display: grid;
+      gap: 20px;
+      justify-content: center;
+    }
+    .group-card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      box-shadow: var(--shadow);
+      transition: var(--transition);
+    }
+    .group-card:hover { box-shadow: var(--shadow-lg); }
+    .group-title {
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--primary-light);
+    }
+    .group-seats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .group-seat {
+      width: 88px; height: 60px;
+      border-radius: var(--radius-sm);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: grab;
+      user-select: none;
+      transition: var(--transition);
+      position: relative;
+    }
+    .group-seat.empty {
+      background: var(--border-light);
+      border: 2px dashed var(--border);
+      cursor: default;
+    }
+    .group-seat.occupied {
+      background: #fff;
+      border: 2px solid var(--border);
+    }
+    .group-seat.occupied:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+    .group-seat.occupied.male { border-left: 3px solid var(--male-color); }
+    .group-seat.occupied.female { border-left: 3px solid var(--female-color); }
+    .group-seat.violation {
+      border-color: var(--danger) !important;
+      background: var(--danger-light) !important;
+      animation: pulse-danger 1.5s infinite;
+    }
+    .group-seat .seat-no { font-size: 0.7rem; color: var(--text-light); font-weight: 700; }
+    .group-seat .seat-name { font-size: 0.85rem; font-weight: 600; }
+    .group-seat.drag-over {
+      background: var(--primary-light) !important;
+      border: 2px dashed var(--primary) !important;
+    }
+    .group-seat.dragging { opacity: 0.4; }
+
+    /* ===== Status Bar ===== */
+    #statusBar {
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      padding: 6px 24px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 4px;
+    }
+    .status-dot.ok { background: var(--success); }
+    .status-dot.warn { background: var(--danger); animation: pulse-danger 1.5s infinite; }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+      animation: fadeIn 0.2s;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xl);
+      width: min(520px, 92vw);
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: slideUp 0.3s;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h2 { font-size: 1.1rem; }
+    .modal-body { padding: 20px; }
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .modal textarea {
+      width: 100%; min-height: 160px;
+      padding: 12px; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.88rem; resize: vertical;
+    }
+    .modal textarea:focus { outline: none; border-color: var(--primary); }
+    .modal .format-hint {
+      font-size: 0.78rem; color: var(--text-light);
+      margin-top: 8px; line-height: 1.6;
+    }
+    .modal .export-options {
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .export-option-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      background: var(--border-light);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: left;
+      font-family: inherit;
+    }
+    .export-option-btn:hover { border-color: var(--primary); background: var(--primary-light); }
+    .export-option-btn .icon { font-size: 1.5rem; }
+    .export-option-btn .label { font-weight: 600; font-size: 0.92rem; }
+    .export-option-btn .desc { font-size: 0.78rem; color: var(--text-secondary); }
+    .modal .file-input-wrapper {
+      display: flex; gap: 8px; margin-bottom: 12px;
+    }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px; color: var(--text-light);
+      text-align: center; gap: 8px;
+    }
+    .empty-state .icon { font-size: 2.5rem; opacity: 0.5; }
+    .empty-state .text { font-size: 0.9rem; }
+
+    /* ===== Animations ===== */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse-danger {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,83,80,0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(239,83,80,0); }
+    }
+    @keyframes shuffleIn {
+      0% { opacity: 0; transform: scale(0.7) rotate(-5deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0); }
+    }
+    .shuffle-anim { animation: shuffleIn 0.35s ease-out both; }
+
+    /* ===== Scrollbar ===== */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+
+    /* ===== Toast ===== */
+    .toast-container {
+      position: fixed; top: 72px; right: 20px; z-index: 2000;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 0.88rem; font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      animation: slideUp 0.3s;
+      max-width: 320px;
+    }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    .toast.info { background: var(--primary); }
+
+    /* ===== Print ===== */
+    @media print {
+      #header, #sidebar, #toolbar, #statusBar, .modal-overlay, .toast-container { display: none !important; }
+      #main { grid-template-columns: 1fr !important; }
+      #seatingArea { padding: 10px; }
+      .blackboard { margin-bottom: 16px; }
+      .seat, .group-seat { border: 1px solid #333 !important; }
+      .seat.violation, .group-seat.violation { animation: none; }
+      body { overflow: visible; }
+      #app { height: auto; }
+      #content { overflow: visible; }
+      #seatingArea { overflow: visible; }
+      @page { margin: 1cm; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <header id="header">
+    <div class="header-left">
+      <h1>🏫 國小座位編排工具</h1>
+    </div>
+    <div class="header-center">
+      <input type="text" id="classTitle" placeholder="輸入班級名稱（例：五年甲班）">
+    </div>
+    <div class="header-right">
+      <button class="btn btn-header" id="btnImport" title="匯入設定檔">📥 匯入</button>
+      <button class="btn btn-header" id="btnExport" title="匯出設定檔">📤 匯出</button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main id="main">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="roster" id="tabRoster">📋 名單</button>
+        <button class="tab-btn" data-tab="constraints" id="tabConstraints">⚙️ 約束</button>
+      </div>
+
+      <!-- Roster Panel -->
+      <div id="rosterPanel" class="panel active">
+        <div class="panel-header">
+          <span>學生名單</span>
+          <span class="badge" id="studentCount">0</span>
+        </div>
+        <div class="add-student-form">
+          <div class="form-row">
+            <input type="number" id="inputSeatNo" placeholder="座號" min="1" max="99">
+            <input type="text" id="inputName" placeholder="姓名" maxlength="10">
+          </div>
+          <div class="form-row">
+            <label class="radio-label">
+              <input type="radio" name="gender" value="male" checked>
+              <span class="radio-custom male">男</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="gender" value="female">
+              <span class="radio-custom female">女</span>
+            </label>
+            <button id="btnAddStudent" class="btn btn-primary btn-sm">➕ 新增</button>
+          </div>
+        </div>
+        <button id="btnBatchImport" class="btn btn-outline btn-full btn-sm">📋 批次匯入名單</button>
+        <div id="studentList" class="student-list"></div>
+      </div>
+
+      <!-- Constraint Panel -->
+      <div id="constraintPanel" class="panel">
+        <div class="panel-header">
+          <span>約束設定</span>
+        </div>
+        <div class="constraint-section">
+          <h3>🚫 不相鄰約束</h3>
+          <p class="help-text">指定兩位不能坐在相鄰位置的學生</p>
+          <div class="form-row">
+            <select id="selectStudentA"></select>
+            <span class="separator">與</span>
+            <select id="selectStudentB"></select>
+          </div>
+          <button id="btnAddNoAdjacent" class="btn btn-outline-danger btn-sm btn-full" style="margin-top:6px;">➕ 新增不相鄰約束</button>
+        </div>
+        <div class="constraint-section">
+          <h3>🔝 必須坐第一排</h3>
+          <p class="help-text">指定必須坐在第一排（靠近黑板）的學生</p>
+          <div class="form-row">
+            <select id="selectFirstRow"></select>
+          </div>
+          <button id="btnAddFirstRow" class="btn btn-accent btn-sm btn-full" style="margin-top:6px;">➕ 新增第一排約束</button>
+        </div>
+        <div class="panel-header" style="margin-top:8px;">
+          <span>目前約束</span>
+          <span class="badge" id="constraintCount">0</span>
+        </div>
+        <div id="constraintList" class="constraint-list"></div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <section id="content">
+      <div id="toolbar">
+        <div class="toolbar-left">
+          <div class="mode-switch">
+            <button class="mode-btn active" data-mode="normal" id="modeNormal">📐 一般座位</button>
+            <button class="mode-btn" data-mode="group" id="modeGroup">👥 分組座位</button>
+          </div>
+        </div>
+        <div class="toolbar-center" id="layoutSettings">
+          <!-- Filled dynamically -->
+        </div>
+        <div class="toolbar-right">
+          <button id="btnAutoArrange" class="btn btn-success">🎲 自動排位</button>
+          <button id="btnClearSeats" class="btn btn-outline-danger btn-sm">🗑️ 清除</button>
+        </div>
+      </div>
+      <div id="seatingArea">
+        <div class="blackboard" id="blackboard">黑 板</div>
+        <div id="seatingGrid"></div>
+        <div id="groupGrid" style="display:none;"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Status Bar -->
+  <footer id="statusBar">
+    <span id="statusText">就緒 — 請先新增學生名單</span>
+  </footer>
+
+  <!-- Modal Overlay -->
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+</div>
+
+<script>
+/* ===============================================
+   STATE
+   =============================================== */
+const STORAGE_KEY = 'seat_arrangement_data';
+
+let state = {
+  classTitle: '',
+  students: [],       // {id, seatNumber, name, gender}
+  constraints: [],    // {id, type:'no-adjacent'|'first-row', studentAId?, studentBId?, studentId?}
+  layout: { mode: 'normal', rows: 4, cols: 4, groupCount: 4 },
+  disabledSeats: [],  // ["row,col", ...] positions that cannot be sat in
+  normalSeating: null, // 2D: [row][col] = studentId|null
+  groupSeating: null,  // [[studentId,...],...]
+  history: []
+};
+
+let editMode = false; // toggle for editing disabled seats
+
+function isDisabledSeat(r, c) {
+  return state.disabledSeats.includes(`${r},${c}`);
+}
+
+function toggleDisabledSeat(r, c) {
+  const key = `${r},${c}`;
+  const idx = state.disabledSeats.indexOf(key);
+  if (idx !== -1) {
+    state.disabledSeats.splice(idx, 1);
+    showToast(`已啟用位置 (${r+1},${c+1})`, 'success');
+  } else {
+    // Remove any student sitting here
+    if (state.normalSeating && state.normalSeating[r] && state.normalSeating[r][c]) {
+      state.normalSeating[r][c] = null;
+    }
+    state.disabledSeats.push(key);
+    showToast(`已禁用位置 (${r+1},${c+1})`, 'info');
+  }
+  saveState();
+  renderNormalSeating();
+  renderStatusBar();
+}
+
+/* ===============================================
+   UTILITY
+   =============================================== */
+function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  $('#toastContainer').appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = '0.3s'; }, 2500);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+function getStudentById(id) { return state.students.find(s => s.id === id); }
+function getStudentDisplay(id) {
+  const s = getStudentById(id);
+  return s ? `${s.seatNumber} ${s.name}` : '?';
+}
+
+/* ===============================================
+   PERSISTENCE
+   =============================================== */
+function saveState() {
+  const data = {
+    classTitle: state.classTitle,
+    students: state.students,
+    constraints: state.constraints,
+    layout: state.layout,
+    disabledSeats: state.disabledSeats,
+    normalSeating: state.normalSeating,
+    groupSeating: state.groupSeating
+  };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      state.classTitle = data.classTitle || '';
+      state.students = data.students || [];
+      state.constraints = data.constraints || [];
+      state.layout = { ...state.layout, ...data.layout };
+      state.disabledSeats = data.disabledSeats || [];
+      state.normalSeating = data.normalSeating || null;
+      state.groupSeating = data.groupSeating || null;
+      $('#classTitle').value = state.classTitle;
+    }
+  } catch(e) {}
+}
+
+/* ===============================================
+   STUDENT MANAGEMENT
+   =============================================== */
+let editingStudentId = null;
+
+function addStudent(seatNumber, name, gender) {
+  if (!name.trim()) { showToast('請輸入姓名', 'error'); return; }
+  if (!seatNumber || seatNumber < 1) { showToast('請輸入有效座號', 'error'); return; }
+  // Check duplicate seat number (except when editing)
+  const dup = state.students.find(s => s.seatNumber === seatNumber && s.id !== editingStudentId);
+  if (dup) { showToast(`座號 ${seatNumber} 已被 ${dup.name} 使用`, 'error'); return; }
+
+  if (editingStudentId) {
+    const student = getStudentById(editingStudentId);
+    if (student) {
+      student.seatNumber = seatNumber;
+      student.name = name.trim();
+      student.gender = gender;
+      showToast('已更新學生資料', 'success');
+    }
+    editingStudentId = null;
+    $('#btnAddStudent').textContent = '➕ 新增';
+  } else {
+    state.students.push({ id: genId(), seatNumber, name: name.trim(), gender });
+    showToast(`已新增 ${name.trim()}`, 'success');
+  }
+  state.students.sort((a, b) => a.seatNumber - b.seatNumber);
+  clearStudentForm();
+  saveState();
+  render();
+}
+
+function removeStudent(id) {
+  const s = getStudentById(id);
+  if (!s) return;
+  // Remove associated constraints
+  state.constraints = state.constraints.filter(c =>
+    !(c.studentId === id || c.studentAId === id || c.studentBId === id));
+  // Remove from seating
+  removeFromSeating(id);
+  state.students = state.students.filter(s => s.id !== id);
+  showToast(`已刪除 ${s.name}`, 'info');
+  saveState();
+  render();
+}
+
+function editStudent(id) {
+  const s = getStudentById(id);
+  if (!s) return;
+  editingStudentId = id;
+  $('#inputSeatNo').value = s.seatNumber;
+  $('#inputName').value = s.name;
+  document.querySelector(`input[name="gender"][value="${s.gender}"]`).checked = true;
+  $('#btnAddStudent').textContent = '✏️ 更新';
+  $('#inputName').focus();
+}
+
+function clearStudentForm() {
+  $('#inputSeatNo').value = '';
+  $('#inputName').value = '';
+  document.querySelector('input[name="gender"][value="male"]').checked = true;
+  editingStudentId = null;
+  $('#btnAddStudent').textContent = '➕ 新增';
+}
+
+function removeFromSeating(studentId) {
+  if (state.normalSeating) {
+    for (let r = 0; r < state.normalSeating.length; r++)
+      for (let c = 0; c < state.normalSeating[r].length; c++)
+        if (state.normalSeating[r][c] === studentId) state.normalSeating[r][c] = null;
+  }
+  if (state.groupSeating) {
+    for (let g = 0; g < state.groupSeating.length; g++)
+      for (let i = 0; i < state.groupSeating[g].length; i++)
+        if (state.groupSeating[g][i] === studentId) state.groupSeating[g][i] = null;
+  }
+}
+
+/* ===============================================
+   CONSTRAINT MANAGEMENT
+   =============================================== */
+function addNoAdjacentConstraint() {
+  const aId = $('#selectStudentA').value;
+  const bId = $('#selectStudentB').value;
+  if (!aId || !bId) { showToast('請選擇兩位學生', 'error'); return; }
+  if (aId === bId) { showToast('不能選擇同一位學生', 'error'); return; }
+  const exists = state.constraints.find(c =>
+    c.type === 'no-adjacent' &&
+    ((c.studentAId === aId && c.studentBId === bId) ||
+     (c.studentAId === bId && c.studentBId === aId)));
+  if (exists) { showToast('此約束已存在', 'error'); return; }
+  state.constraints.push({ id: genId(), type: 'no-adjacent', studentAId: aId, studentBId: bId });
+  showToast('已新增不相鄰約束', 'success');
+  saveState(); render();
+}
+
+function addFirstRowConstraint() {
+  const sId = $('#selectFirstRow').value;
+  if (!sId) { showToast('請選擇學生', 'error'); return; }
+  const exists = state.constraints.find(c => c.type === 'first-row' && c.studentId === sId);
+  if (exists) { showToast('此約束已存在', 'error'); return; }
+  state.constraints.push({ id: genId(), type: 'first-row', studentId: sId });
+  showToast('已新增第一排約束', 'success');
+  saveState(); render();
+}
+
+function removeConstraint(id) {
+  state.constraints = state.constraints.filter(c => c.id !== id);
+  saveState(); render();
+}
+
+/* ===============================================
+   AUTO-ARRANGE ALGORITHM
+   =============================================== */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getAdjacentPositions(r, c, rows, cols) {
+  const adj = [];
+  if (r > 0) adj.push([r-1, c]);
+  if (r < rows-1) adj.push([r+1, c]);
+  if (c > 0) adj.push([r, c-1]);
+  if (c < cols-1) adj.push([r, c+1]);
+  return adj;
+}
+
+function countNormalViolations(grid) {
+  const rows = grid.length, cols = grid[0].length;
+  let violations = 0;
+  const violatingCells = new Set();
+  const noAdjConstraints = state.constraints.filter(c => c.type === 'no-adjacent');
+  const firstRowConstraints = state.constraints.filter(c => c.type === 'first-row');
+
+  // Check no-adjacent
+  for (const c of noAdjConstraints) {
+    let posA = null, posB = null;
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        if (grid[r][col] === c.studentAId) posA = [r, col];
+        if (grid[r][col] === c.studentBId) posB = [r, col];
+      }
+    }
+    if (posA && posB) {
+      const dist = Math.abs(posA[0]-posB[0]) + Math.abs(posA[1]-posB[1]);
+      if (dist === 1) {
+        violations++;
+        violatingCells.add(`${posA[0]},${posA[1]}`);
+        violatingCells.add(`${posB[0]},${posB[1]}`);
+      }
+    }
+  }
+
+  // Check first-row
+  for (const c of firstRowConstraints) {
+    let found = false;
+    for (let col = 0; col < cols; col++) {
+      if (grid[0][col] === c.studentId) { found = true; break; }
+    }
+    if (!found) {
+      violations++;
+      // Find where they are and mark
+      for (let r = 0; r < rows; r++)
+        for (let col = 0; col < cols; col++)
+          if (grid[r][col] === c.studentId) violatingCells.add(`${r},${col}`);
+    }
+  }
+
+  return { violations, violatingCells };
+}
+
+function autoArrangeNormal() {
+  pushHistory();
+  const { rows, cols } = state.layout;
+  const totalSeats = rows * cols;
+  const disabledCount = state.disabledSeats.filter(k => {
+    const [r,c] = k.split(',').map(Number);
+    return r < rows && c < cols;
+  }).length;
+  const availableSeats = totalSeats - disabledCount;
+  const studentIds = state.students.map(s => s.id);
+
+  if (studentIds.length === 0) { showToast('請先新增學生', 'error'); return; }
+  if (studentIds.length > availableSeats) {
+    showToast(`學生人數 (${studentIds.length}) 超過可用座位數 (${availableSeats})，請減少禁用座位或增加行列`, 'error');
+    return;
+  }
+
+  const firstRowIds = new Set(
+    state.constraints.filter(c => c.type === 'first-row').map(c => c.studentId)
+  );
+
+  const firstRowAvailable = Array.from({length: cols}, (_, c) => c).filter(c => !isDisabledSeat(0, c)).length;
+  if (firstRowIds.size > firstRowAvailable) {
+    showToast(`第一排約束人數 (${firstRowIds.size}) 超過第一排可用座位數 (${firstRowAvailable})`, 'error');
+    return;
+  }
+
+  let bestGrid = null;
+  let bestViolations = Infinity;
+
+  for (let attempt = 0; attempt < 2000; attempt++) {
+    const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
+    const firstRowArr = shuffle([...firstRowIds]);
+    const others = shuffle(studentIds.filter(id => !firstRowIds.has(id)));
+
+    // Place first-row students in available first-row seats
+    const availFirstRowCols = shuffle(Array.from({length: cols}, (_, c) => c).filter(c => !isDisabledSeat(0, c)));
+    let frIdx = 0;
+    for (const sid of firstRowArr) {
+      grid[0][availFirstRowCols[frIdx++]] = sid;
+    }
+
+    // Collect all available positions (excluding disabled and already filled)
+    const availPositions = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!isDisabledSeat(r, c) && grid[r][c] === null) {
+          availPositions.push([r, c]);
+        }
+      }
+    }
+    const shuffledPositions = shuffle(availPositions);
+
+    // Fill remaining students into available positions
+    let otherIdx = 0;
+    for (const [pr, pc] of shuffledPositions) {
+      if (otherIdx < others.length) {
+        grid[pr][pc] = others[otherIdx++];
+      }
+    }
+
+    const { violations } = countNormalViolations(grid);
+    if (violations < bestViolations) {
+      bestViolations = violations;
+      bestGrid = deepClone(grid);
+    }
+    if (violations === 0) break;
+  }
+
+  // Local search improvement
+  if (bestViolations > 0) {
+    for (let iter = 0; iter < 500; iter++) {
+      let improved = false;
+      for (let r1 = 0; r1 < rows; r1++) {
+        for (let c1 = 0; c1 < cols; c1++) {
+          for (let r2 = 0; r2 < rows; r2++) {
+            for (let c2 = 0; c2 < cols; c2++) {
+              if (r1 === r2 && c1 === c2) continue;
+              if (!bestGrid[r1][c1] && !bestGrid[r2][c2]) continue;
+              // Skip disabled seats
+              if (isDisabledSeat(r1, c1) || isDisabledSeat(r2, c2)) continue;
+              // Check first-row constraint before swapping
+              const s1 = bestGrid[r1][c1], s2 = bestGrid[r2][c2];
+              if (firstRowIds.has(s1) && r2 !== 0) continue;
+              if (firstRowIds.has(s2) && r1 !== 0) continue;
+
+              [bestGrid[r1][c1], bestGrid[r2][c2]] = [bestGrid[r2][c2], bestGrid[r1][c1]];
+              const newV = countNormalViolations(bestGrid).violations;
+              if (newV < bestViolations) {
+                bestViolations = newV;
+                improved = true;
+              } else {
+                [bestGrid[r1][c1], bestGrid[r2][c2]] = [bestGrid[r2][c2], bestGrid[r1][c1]];
+              }
+              if (bestViolations === 0) break;
+            }
+            if (bestViolations === 0) break;
+          }
+          if (bestViolations === 0) break;
+        }
+        if (bestViolations === 0) break;
+      }
+      if (!improved || bestViolations === 0) break;
+    }
+  }
+
+  state.normalSeating = bestGrid;
+  saveState();
+  renderNormalSeating(true);
+  renderStatusBar();
+  if (bestViolations > 0) {
+    showToast(`排位完成，但仍有 ${bestViolations} 項約束無法滿足`, 'error');
+  } else {
+    showToast('排位完成！所有約束已滿足 ✓', 'success');
+  }
+}
+
+function countGroupViolations(groups) {
+  let violations = 0;
+  const violating = new Set(); // "g,i"
+  const noAdjConstraints = state.constraints.filter(c => c.type === 'no-adjacent');
+
+  for (const c of noAdjConstraints) {
+    for (let g = 0; g < groups.length; g++) {
+      const idxA = groups[g].indexOf(c.studentAId);
+      const idxB = groups[g].indexOf(c.studentBId);
+      if (idxA !== -1 && idxB !== -1) {
+        violations++;
+        violating.add(`${g},${idxA}`);
+        violating.add(`${g},${idxB}`);
+      }
+    }
+  }
+
+  // First-row constraints: in group mode, we check if student is in first row of groups
+  // First row of group grid = groups at the top
+  // For simplicity, first-row constraint is not directly applicable in group mode
+  // We can ignore or mark as N/A
+
+  return { violations, violating };
+}
+
+function autoArrangeGroup() {
+  pushHistory();
+  const { groupCount } = state.layout;
+  const studentIds = state.students.map(s => s.id);
+
+  if (studentIds.length === 0) { showToast('請先新增學生', 'error'); return; }
+
+  const groupSize = Math.ceil(studentIds.length / groupCount);
+  let bestGroups = null;
+  let bestViolations = Infinity;
+
+  for (let attempt = 0; attempt < 2000; attempt++) {
+    const shuffled = shuffle(studentIds);
+    const groups = [];
+    for (let g = 0; g < groupCount; g++) {
+      const start = g * groupSize;
+      const group = shuffled.slice(start, start + groupSize);
+      // Pad with nulls if needed
+      while (group.length < groupSize) group.push(null);
+      groups.push(group);
+    }
+
+    const { violations } = countGroupViolations(groups);
+    if (violations < bestViolations) {
+      bestViolations = violations;
+      bestGroups = deepClone(groups);
+    }
+    if (violations === 0) break;
+  }
+
+  // Local search
+  if (bestViolations > 0 && bestGroups) {
+    for (let iter = 0; iter < 300; iter++) {
+      let improved = false;
+      for (let g1 = 0; g1 < bestGroups.length; g1++) {
+        for (let i1 = 0; i1 < bestGroups[g1].length; i1++) {
+          for (let g2 = g1; g2 < bestGroups.length; g2++) {
+            for (let i2 = (g1===g2 ? i1+1 : 0); i2 < bestGroups[g2].length; i2++) {
+              [bestGroups[g1][i1], bestGroups[g2][i2]] = [bestGroups[g2][i2], bestGroups[g1][i1]];
+              const newV = countGroupViolations(bestGroups).violations;
+              if (newV < bestViolations) {
+                bestViolations = newV;
+                improved = true;
+              } else {
+                [bestGroups[g1][i1], bestGroups[g2][i2]] = [bestGroups[g2][i2], bestGroups[g1][i1]];
+              }
+              if (bestViolations === 0) break;
+            }
+            if (bestViolations === 0) break;
+          }
+          if (bestViolations === 0) break;
+        }
+        if (bestViolations === 0) break;
+      }
+      if (!improved || bestViolations === 0) break;
+    }
+  }
+
+  state.groupSeating = bestGroups;
+  saveState();
+  renderGroupSeating(true);
+  renderStatusBar();
+  if (bestViolations > 0) {
+    showToast(`分組完成，但仍有 ${bestViolations} 項約束無法滿足`, 'error');
+  } else {
+    showToast('分組完成！所有約束已滿足 ✓', 'success');
+  }
+}
+
+/* ===============================================
+   HISTORY (UNDO)
+   =============================================== */
+function pushHistory() {
+  state.history.push({
+    normalSeating: deepClone(state.normalSeating),
+    groupSeating: deepClone(state.groupSeating)
+  });
+  if (state.history.length > 30) state.history.shift();
+}
+
+function undo() {
+  if (state.history.length === 0) { showToast('沒有可以復原的操作', 'info'); return; }
+  const prev = state.history.pop();
+  state.normalSeating = prev.normalSeating;
+  state.groupSeating = prev.groupSeating;
+  saveState(); render();
+  showToast('已復原', 'info');
+}
+
+/* ===============================================
+   DRAG & DROP
+   =============================================== */
+let dragData = null;
+
+function handleDragStart(e) {
+  const el = e.target.closest('[data-drag-id]');
+  if (!el) return;
+  dragData = {
+    mode: el.dataset.dragMode,
+    row: parseInt(el.dataset.dragRow),
+    col: parseInt(el.dataset.dragCol),
+    group: parseInt(el.dataset.dragGroup),
+    index: parseInt(el.dataset.dragIndex)
+  };
+  el.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', '');
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const el = e.target.closest('[data-drag-id]');
+  if (el) el.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  const el = e.target.closest('[data-drag-id]');
+  if (el) el.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  $$('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  $$('.dragging').forEach(el => el.classList.remove('dragging'));
+
+  const el = e.target.closest('[data-drag-id]');
+  if (!el || !dragData) return;
+
+  const target = {
+    mode: el.dataset.dragMode,
+    row: parseInt(el.dataset.dragRow),
+    col: parseInt(el.dataset.dragCol),
+    group: parseInt(el.dataset.dragGroup),
+    index: parseInt(el.dataset.dragIndex)
+  };
+
+  if (dragData.mode === 'normal' && target.mode === 'normal') {
+    if (dragData.row === target.row && dragData.col === target.col) return;
+    // Prevent dropping onto disabled seats
+    if (isDisabledSeat(target.row, target.col)) { showToast('此位置已禁用', 'error'); return; }
+    pushHistory();
+    const grid = state.normalSeating;
+    [grid[dragData.row][dragData.col], grid[target.row][target.col]] =
+      [grid[target.row][target.col], grid[dragData.row][dragData.col]];
+    saveState(); renderNormalSeating(); renderStatusBar();
+  } else if (dragData.mode === 'group' && target.mode === 'group') {
+    if (dragData.group === target.group && dragData.index === target.index) return;
+    pushHistory();
+    const groups = state.groupSeating;
+    [groups[dragData.group][dragData.index], groups[target.group][target.index]] =
+      [groups[target.group][target.index], groups[dragData.group][dragData.index]];
+    saveState(); renderGroupSeating(); renderStatusBar();
+  }
+  dragData = null;
+}
+
+function handleDragEnd(e) {
+  $$('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  $$('.dragging').forEach(el => el.classList.remove('dragging'));
+  dragData = null;
+}
+
+/* ===============================================
+   RENDERING
+   =============================================== */
+function render() {
+  renderRoster();
+  renderConstraints();
+  renderLayoutSettings();
+  if (state.layout.mode === 'normal') {
+    renderNormalSeating();
+    $('#seatingGrid').style.display = 'grid';
+    $('#groupGrid').style.display = 'none';
+  } else {
+    renderGroupSeating();
+    $('#seatingGrid').style.display = 'none';
+    $('#groupGrid').style.display = 'grid';
+  }
+  renderStatusBar();
+}
+
+function renderRoster() {
+  const list = $('#studentList');
+  const count = $('#studentCount');
+  count.textContent = state.students.length;
+
+  if (state.students.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">👨‍🎓</div><div class="text">尚未新增學生<br>請在上方輸入或批次匯入</div></div>`;
+    return;
+  }
+
+  list.innerHTML = state.students.map(s => `
+    <div class="student-item" id="student-${s.id}">
+      <span class="student-seatno">${s.seatNumber}</span>
+      <span class="student-gender ${s.gender}"></span>
+      <span class="student-name">${s.name}</span>
+      <div class="student-actions">
+        <button class="btn-icon" onclick="editStudent('${s.id}')" title="編輯">✏️</button>
+        <button class="btn-icon delete" onclick="removeStudent('${s.id}')" title="刪除">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderConstraints() {
+  const list = $('#constraintList');
+  const count = $('#constraintCount');
+  count.textContent = state.constraints.length;
+
+  // Update selects
+  const options = state.students.map(s =>
+    `<option value="${s.id}">${s.seatNumber} ${s.name}</option>`
+  ).join('');
+  const emptyOpt = '<option value="">-- 選擇學生 --</option>';
+  $('#selectStudentA').innerHTML = emptyOpt + options;
+  $('#selectStudentB').innerHTML = emptyOpt + options;
+  $('#selectFirstRow').innerHTML = emptyOpt + options;
+
+  if (state.constraints.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📝</div><div class="text">尚未設定約束</div></div>`;
+    return;
+  }
+
+  list.innerHTML = state.constraints.map(c => {
+    if (c.type === 'no-adjacent') {
+      return `<div class="constraint-item">
+        <span class="tag tag-noadj">不相鄰</span>
+        <span class="desc">${getStudentDisplay(c.studentAId)} ↔ ${getStudentDisplay(c.studentBId)}</span>
+        <button class="btn-icon delete" onclick="removeConstraint('${c.id}')" title="刪除">✕</button>
+      </div>`;
+    } else {
+      return `<div class="constraint-item">
+        <span class="tag tag-firstrow">第一排</span>
+        <span class="desc">${getStudentDisplay(c.studentId)}</span>
+        <button class="btn-icon delete" onclick="removeConstraint('${c.id}')" title="刪除">✕</button>
+      </div>`;
+    }
+  }).join('');
+}
+
+function renderLayoutSettings() {
+  const container = $('#layoutSettings');
+  if (state.layout.mode === 'normal') {
+    const editBtnClass = editMode ? 'btn btn-sm btn-edit-active' : 'btn btn-sm btn-outline';
+    container.innerHTML = `
+      <div class="layout-input-group">
+        <label>行數</label>
+        <input type="number" id="inputRows" value="${state.layout.rows}" min="1" max="10">
+      </div>
+      <span style="color:var(--text-light)">×</span>
+      <div class="layout-input-group">
+        <label>列數</label>
+        <input type="number" id="inputCols" value="${state.layout.cols}" min="1" max="10">
+      </div>
+      <button id="btnEditSeats" class="${editBtnClass}" title="點擊座位可切換啟用/禁用">
+        ${editMode ? '✏️ 編輯中...' : '🚫 禁用座位'}
+      </button>
+    `;
+    $('#btnEditSeats').addEventListener('click', () => {
+      editMode = !editMode;
+      if (editMode) {
+        showToast('編輯模式：點擊座位可切換禁用/啟用', 'info');
+        $('#seatingArea').classList.add('edit-mode');
+      } else {
+        $('#seatingArea').classList.remove('edit-mode');
+      }
+      renderLayoutSettings();
+      renderNormalSeating();
+    });
+    $('#inputRows').addEventListener('change', e => {
+      state.layout.rows = Math.max(1, Math.min(10, parseInt(e.target.value) || 4));
+      e.target.value = state.layout.rows;
+      state.normalSeating = null;
+      // Clean up disabled seats outside new grid
+      state.disabledSeats = state.disabledSeats.filter(k => {
+        const [r,c] = k.split(',').map(Number);
+        return r < state.layout.rows && c < state.layout.cols;
+      });
+      saveState(); render();
+    });
+    $('#inputCols').addEventListener('change', e => {
+      state.layout.cols = Math.max(1, Math.min(10, parseInt(e.target.value) || 4));
+      e.target.value = state.layout.cols;
+      state.normalSeating = null;
+      state.disabledSeats = state.disabledSeats.filter(k => {
+        const [r,c] = k.split(',').map(Number);
+        return r < state.layout.rows && c < state.layout.cols;
+      });
+      saveState(); render();
+    });
+  } else {
+    container.innerHTML = `
+      <div class="layout-input-group">
+        <label>組數</label>
+        <input type="number" id="inputGroupCount" value="${state.layout.groupCount}" min="1" max="12">
+      </div>
+    `;
+    $('#inputGroupCount').addEventListener('change', e => {
+      state.layout.groupCount = Math.max(1, Math.min(12, parseInt(e.target.value) || 4));
+      e.target.value = state.layout.groupCount;
+      state.groupSeating = null;
+      saveState(); render();
+    });
+  }
+}
+
+function renderNormalSeating(animate = false) {
+  const grid = $('#seatingGrid');
+  const { rows, cols } = state.layout;
+  grid.style.gridTemplateColumns = `repeat(${cols}, 100px)`;
+  grid.style.display = 'grid';
+  $('#groupGrid').style.display = 'none';
+
+  // Ensure seating grid exists
+  if (!state.normalSeating || state.normalSeating.length !== rows || state.normalSeating[0]?.length !== cols) {
+    state.normalSeating = Array.from({ length: rows }, () => Array(cols).fill(null));
+  }
+
+  const { violatingCells } = state.normalSeating ? countNormalViolations(state.normalSeating) : { violatingCells: new Set() };
+
+  // Build first-row set for badge display
+  const firstRowSet = new Set(state.constraints.filter(c => c.type === 'first-row').map(c => c.studentId));
+
+  let html = '';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const disabled = isDisabledSeat(r, c);
+      const sid = disabled ? null : state.normalSeating[r][c];
+      const student = sid ? getStudentById(sid) : null;
+      const isViolation = violatingCells.has(`${r},${c}`);
+      const isFirstRow = student && firstRowSet.has(student.id);
+      const animClass = animate ? 'shuffle-anim' : '';
+      const animDelay = animate ? `animation-delay:${(r * cols + c) * 30}ms;` : '';
+
+      if (disabled) {
+        html += `<div class="seat disabled ${animClass}" data-seat-row="${r}" data-seat-col="${c}" style="${animDelay}"
+          title="此位置已禁用（點擊編輯模式可切換）">
+          <span class="seat-name">✕</span>
+        </div>`;
+      } else if (student) {
+        html += `<div class="seat occupied ${student.gender} ${isViolation ? 'violation' : ''} ${animClass}"
+          draggable="true" data-drag-id="${student.id}" data-drag-mode="normal"
+          data-drag-row="${r}" data-drag-col="${c}" data-seat-row="${r}" data-seat-col="${c}" style="${animDelay}"
+          title="${student.seatNumber} ${student.name}">
+          ${isFirstRow ? '<div class="first-row-badge">⭐</div>' : ''}
+          <span class="seat-no">${student.seatNumber}號</span>
+          <span class="seat-name">${student.name}</span>
+        </div>`;
+      } else {
+        html += `<div class="seat empty" data-drag-id="empty-${r}-${c}" data-drag-mode="normal"
+          data-drag-row="${r}" data-drag-col="${c}" data-seat-row="${r}" data-seat-col="${c}">
+          <span style="font-size:0.75rem;color:var(--text-light)">空位</span>
+        </div>`;
+      }
+    }
+  }
+  grid.innerHTML = html;
+
+  // Attach drag events (only when NOT in edit mode)
+  if (!editMode) {
+    grid.querySelectorAll('[draggable="true"]').forEach(el => {
+      el.addEventListener('dragstart', handleDragStart);
+    });
+    grid.querySelectorAll('[data-drag-id]').forEach(el => {
+      el.addEventListener('dragover', handleDragOver);
+      el.addEventListener('dragleave', handleDragLeave);
+      el.addEventListener('drop', handleDrop);
+      el.addEventListener('dragend', handleDragEnd);
+    });
+  }
+
+  // Attach click events for edit mode (toggle disabled)
+  if (editMode) {
+    grid.querySelectorAll('.seat').forEach(el => {
+      el.addEventListener('click', () => {
+        const r = parseInt(el.dataset.seatRow);
+        const c = parseInt(el.dataset.seatCol);
+        if (!isNaN(r) && !isNaN(c)) toggleDisabledSeat(r, c);
+      });
+    });
+  }
+}
+
+function renderGroupSeating(animate = false) {
+  const gridEl = $('#groupGrid');
+  const { groupCount } = state.layout;
+  const studentCount = state.students.length;
+  const groupSize = Math.max(1, Math.ceil(studentCount / groupCount));
+
+  // Auto-calculate columns for group grid
+  const groupCols = groupCount <= 2 ? groupCount : groupCount <= 6 ? Math.min(3, groupCount) : 4;
+  gridEl.style.gridTemplateColumns = `repeat(${groupCols}, auto)`;
+  gridEl.style.display = 'grid';
+  $('#seatingGrid').style.display = 'none';
+
+  // Ensure group data exists
+  if (!state.groupSeating || state.groupSeating.length !== groupCount) {
+    state.groupSeating = Array.from({ length: groupCount }, () => Array(groupSize).fill(null));
+  }
+  // Ensure all groups have correct size
+  for (let g = 0; g < groupCount; g++) {
+    while (state.groupSeating[g].length < groupSize) state.groupSeating[g].push(null);
+    if (state.groupSeating[g].length > groupSize) state.groupSeating[g] = state.groupSeating[g].slice(0, groupSize);
+  }
+
+  const { violating } = countGroupViolations(state.groupSeating);
+
+  // Group seat columns (2 per row within each group)
+  const seatsPerRow = 2;
+
+  let html = '';
+  for (let g = 0; g < groupCount; g++) {
+    const animClass = animate ? 'shuffle-anim' : '';
+    const animDelay = animate ? `animation-delay:${g * 80}ms;` : '';
+    html += `<div class="group-card ${animClass}" style="${animDelay}">
+      <div class="group-title">第 ${g + 1} 組</div>
+      <div class="group-seats" style="grid-template-columns:repeat(${seatsPerRow},1fr);">`;
+
+    for (let i = 0; i < state.groupSeating[g].length; i++) {
+      const sid = state.groupSeating[g][i];
+      const student = sid ? getStudentById(sid) : null;
+      const isViolation = violating.has(`${g},${i}`);
+
+      if (student) {
+        html += `<div class="group-seat occupied ${student.gender} ${isViolation ? 'violation' : ''}"
+          draggable="true" data-drag-id="${student.id}" data-drag-mode="group"
+          data-drag-group="${g}" data-drag-index="${i}"
+          title="${student.seatNumber} ${student.name}">
+          <span class="seat-no">${student.seatNumber}號</span>
+          <span class="seat-name">${student.name}</span>
+        </div>`;
+      } else {
+        html += `<div class="group-seat empty" data-drag-id="gempty-${g}-${i}" data-drag-mode="group"
+          data-drag-group="${g}" data-drag-index="${i}">
+          <span style="font-size:0.7rem;color:var(--text-light)">空位</span>
+        </div>`;
+      }
+    }
+
+    html += `</div></div>`;
+  }
+  gridEl.innerHTML = html;
+
+  // Attach drag events
+  gridEl.querySelectorAll('[draggable="true"]').forEach(el => {
+    el.addEventListener('dragstart', handleDragStart);
+  });
+  gridEl.querySelectorAll('[data-drag-id]').forEach(el => {
+    el.addEventListener('dragover', handleDragOver);
+    el.addEventListener('dragleave', handleDragLeave);
+    el.addEventListener('drop', handleDrop);
+    el.addEventListener('dragend', handleDragEnd);
+  });
+}
+
+function renderStatusBar() {
+  const total = state.students.length;
+  let seated = 0;
+  let violations = 0;
+
+  if (state.layout.mode === 'normal' && state.normalSeating) {
+    for (const row of state.normalSeating)
+      for (const cell of row)
+        if (cell && getStudentById(cell)) seated++;
+    violations = countNormalViolations(state.normalSeating).violations;
+  } else if (state.layout.mode === 'group' && state.groupSeating) {
+    for (const group of state.groupSeating)
+      for (const cell of group)
+        if (cell && getStudentById(cell)) seated++;
+    violations = countGroupViolations(state.groupSeating).violations;
+  }
+
+  const disabledCount = state.layout.mode === 'normal' ? state.disabledSeats.filter(k => {
+    const [r,c] = k.split(',').map(Number);
+    return r < state.layout.rows && c < state.layout.cols;
+  }).length : 0;
+  const dotClass = violations > 0 ? 'warn' : 'ok';
+  const modeLabel = state.layout.mode === 'normal' ? '一般座位' : '分組座位';
+  const layoutInfo = state.layout.mode === 'normal'
+    ? `${state.layout.rows}×${state.layout.cols}${disabledCount > 0 ? ' 禁用' + disabledCount : ''}`
+    : `${state.layout.groupCount} 組`;
+
+  $('#statusText').innerHTML = `
+    <span class="status-dot ${dotClass}"></span>
+    ${modeLabel} (${layoutInfo}) ｜
+    已排座 <strong>${seated}</strong> / ${total} 人 ｜
+    約束違反: <strong style="color:${violations > 0 ? 'var(--danger)' : 'var(--success)'}">${violations}</strong>
+    ${violations > 0 ? ' ⚠️' : ' ✓'}
+  `;
+}
+
+/* ===============================================
+   MODALS
+   =============================================== */
+function showModal(html) {
+  $('#modalContent').innerHTML = html;
+  $('#modalOverlay').classList.remove('hidden');
+}
+
+function hideModal() {
+  $('#modalOverlay').classList.add('hidden');
+}
+
+function showBatchImportModal() {
+  showModal(`
+    <div class="modal-header">
+      <h2>📋 批次匯入學生名單</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="batchTextarea" placeholder="在此貼上學生名單..."></textarea>
+      <div class="format-hint">
+        📌 格式說明（每行一位學生）：<br>
+        <code>座號, 姓名, 性別</code> 或 <code>座號 [Tab] 姓名 [Tab] 性別</code><br>
+        性別請填「男」或「女」<br><br>
+        範例：<br>
+        <code>1, 王小明, 男</code><br>
+        <code>2, 李小花, 女</code><br>
+        <code>3, 張大偉, 男</code>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">取消</button>
+      <button class="btn btn-primary" onclick="doBatchImport()">匯入</button>
+    </div>
+  `);
+  setTimeout(() => $('#batchTextarea')?.focus(), 100);
+}
+
+function doBatchImport() {
+  const text = $('#batchTextarea').value.trim();
+  if (!text) { showToast('請貼上名單資料', 'error'); return; }
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  let added = 0;
+  for (const line of lines) {
+    // Try tab, then comma separation
+    let parts = line.split('\t');
+    if (parts.length < 3) parts = line.split(',').map(p => p.trim());
+    if (parts.length < 3) parts = line.split(/\s+/);
+
+    if (parts.length >= 3) {
+      const seatNo = parseInt(parts[0]);
+      const name = parts[1].trim();
+      const genderStr = parts[2].trim();
+      const gender = (genderStr === '女' || genderStr.toLowerCase() === 'female' || genderStr.toLowerCase() === 'f') ? 'female' : 'male';
+
+      if (seatNo > 0 && name) {
+        const dup = state.students.find(s => s.seatNumber === seatNo);
+        if (!dup) {
+          state.students.push({ id: genId(), seatNumber: seatNo, name, gender });
+          added++;
+        }
+      }
+    }
+  }
+
+  state.students.sort((a, b) => a.seatNumber - b.seatNumber);
+  hideModal();
+  saveState();
+  render();
+  showToast(`已匯入 ${added} 位學生`, 'success');
+}
+
+function showExportModal() {
+  showModal(`
+    <div class="modal-header">
+      <h2>📤 匯出</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="export-options">
+        <button class="export-option-btn" onclick="exportJSON()">
+          <span class="icon">💾</span>
+          <div>
+            <div class="label">下載 JSON 設定檔</div>
+            <div class="desc">匯出所有資料（名單、約束、座位），可再次匯入使用</div>
+          </div>
+        </button>
+        <button class="export-option-btn" onclick="exportImage()">
+          <span class="icon">🖼️</span>
+          <div>
+            <div class="label">匯出座位表圖片</div>
+            <div class="desc">將目前座位表儲存為 PNG 圖片</div>
+          </div>
+        </button>
+        <button class="export-option-btn" onclick="doPrint()">
+          <span class="icon">🖨️</span>
+          <div>
+            <div class="label">列印座位表</div>
+            <div class="desc">開啟列印對話框</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function showImportModal() {
+  showModal(`
+    <div class="modal-header">
+      <h2>📥 匯入設定檔</h2>
+      <button class="btn-icon" onclick="hideModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px;font-size:0.9rem;color:var(--text-secondary)">
+        選擇先前匯出的 JSON 設定檔，將覆蓋目前所有資料。
+      </p>
+      <div class="file-input-wrapper">
+        <input type="file" id="importFileInput" accept=".json" style="flex:1;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="hideModal()">取消</button>
+      <button class="btn btn-primary" onclick="doImportJSON()">匯入</button>
+    </div>
+  `);
+}
+
+/* ===============================================
+   IMPORT / EXPORT
+   =============================================== */
+function exportJSON() {
+  const data = {
+    version: 1,
+    classTitle: state.classTitle,
+    students: state.students,
+    constraints: state.constraints,
+    layout: state.layout,
+    disabledSeats: state.disabledSeats,
+    normalSeating: state.normalSeating,
+    groupSeating: state.groupSeating
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `座位表_${state.classTitle || '未命名'}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  hideModal();
+  showToast('已下載 JSON 設定檔', 'success');
+}
+
+function doImportJSON() {
+  const fileInput = $('#importFileInput');
+  if (!fileInput.files.length) { showToast('請選擇檔案', 'error'); return; }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      state.classTitle = data.classTitle || '';
+      state.students = data.students || [];
+      state.constraints = data.constraints || [];
+      state.layout = { ...state.layout, ...data.layout };
+      state.disabledSeats = data.disabledSeats || [];
+      state.normalSeating = data.normalSeating || null;
+      state.groupSeating = data.groupSeating || null;
+      state.history = [];
+      $('#classTitle').value = state.classTitle;
+      hideModal();
+      saveState();
+      render();
+      showToast('匯入成功！', 'success');
+    } catch (err) {
+      showToast('檔案格式錯誤，請確認為有效的 JSON 檔', 'error');
+    }
+  };
+  reader.readAsText(fileInput.files[0]);
+}
+
+function exportImage() {
+  hideModal();
+  const area = $('#seatingArea');
+  // Use a simple canvas-based export
+  doCanvasExport(area);
+}
+
+function doCanvasExport(element) {
+  // Try using html2canvas if available, otherwise fallback to simple approach
+  if (typeof html2canvas !== 'undefined') {
+    html2canvas(element, {
+      backgroundColor: '#F0F2F8',
+      scale: 2,
+      useCORS: true
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `座位表_${state.classTitle || '未命名'}_${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('已匯出座位表圖片', 'success');
+    }).catch(() => {
+      showToast('圖片匯出失敗，請使用列印功能', 'error');
+    });
+  } else {
+    // Load html2canvas dynamically
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    script.onload = () => doCanvasExport(element);
+    script.onerror = () => showToast('無法載入圖片匯出套件，請使用列印功能', 'error');
+    document.head.appendChild(script);
+  }
+}
+
+function doPrint() {
+  hideModal();
+  window.print();
+}
+
+/* ===============================================
+   EVENT LISTENERS
+   =============================================== */
+function initEventListeners() {
+  // Sidebar tabs
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.tab-btn').forEach(b => b.classList.remove('active'));
+      $$('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      $(`#${btn.dataset.tab === 'roster' ? 'rosterPanel' : 'constraintPanel'}`).classList.add('active');
+    });
+  });
+
+  // Add student
+  $('#btnAddStudent').addEventListener('click', () => {
+    const seatNo = parseInt($('#inputSeatNo').value);
+    const name = $('#inputName').value;
+    const gender = document.querySelector('input[name="gender"]:checked').value;
+    addStudent(seatNo, name, gender);
+  });
+
+  // Enter key to add student
+  $('#inputName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#btnAddStudent').click();
+  });
+  $('#inputSeatNo').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#inputName').focus();
+  });
+
+  // Batch import modal
+  $('#btnBatchImport').addEventListener('click', showBatchImportModal);
+
+  // Constraints
+  $('#btnAddNoAdjacent').addEventListener('click', addNoAdjacentConstraint);
+  $('#btnAddFirstRow').addEventListener('click', addFirstRowConstraint);
+
+  // Mode switch
+  $$('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.layout.mode = btn.dataset.mode;
+      saveState();
+      render();
+    });
+  });
+
+  // Auto arrange
+  $('#btnAutoArrange').addEventListener('click', () => {
+    if (state.layout.mode === 'normal') autoArrangeNormal();
+    else autoArrangeGroup();
+  });
+
+  // Clear seats
+  $('#btnClearSeats').addEventListener('click', () => {
+    pushHistory();
+    if (state.layout.mode === 'normal') {
+      state.normalSeating = null;
+    } else {
+      state.groupSeating = null;
+    }
+    saveState(); render();
+    showToast('已清除座位', 'info');
+  });
+
+  // Class title
+  $('#classTitle').addEventListener('input', (e) => {
+    state.classTitle = e.target.value;
+    saveState();
+  });
+
+  // Import / Export
+  $('#btnImport').addEventListener('click', showImportModal);
+  $('#btnExport').addEventListener('click', showExportModal);
+
+  // Modal overlay click to close
+  $('#modalOverlay').addEventListener('click', (e) => {
+    if (e.target === $('#modalOverlay')) hideModal();
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+    if (e.key === 'Escape') hideModal();
+  });
+}
+
+/* ===============================================
+   INITIALIZATION
+   =============================================== */
+function init() {
+  loadState();
+  initEventListeners();
+  render();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
